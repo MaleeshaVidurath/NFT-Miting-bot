@@ -1,0 +1,29 @@
+{
+  "name": "rh-free-mint-hunter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RH freemint hunter - scans OpenSea drops on Robinhood Chain and mints eligible free drops",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "scan:check": "tsx src/scripts/checkScan.ts",
+    "drops:scan": "tsx src/scripts/findDrops.ts",
+    "drops:upcoming": "tsx src/scripts/upcoming.ts",
+    "drops:eligible": "tsx src/scripts/eligible.ts",
+    "check:minted": "tsx src/scripts/checkMinted.ts",
+    "ledger": "tsx src/scripts/ledger.ts",
+    "flow:check": "tsx src/scripts/checkFlow.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
