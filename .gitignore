@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.log
 data/
+# Docker keeps settings here
+data/
+build/

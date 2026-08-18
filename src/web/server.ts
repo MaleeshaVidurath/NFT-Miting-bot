@@ -9,12 +9,35 @@ import { hunter } from '../hunter.js';
 import { getProvider, getWallet } from '../flow/02-chain/index.js';
 import { allDrops } from '../flow/03-drops/registry.js';
 import { ledger } from '../flow/08-save/index.js';
-import { getEthRate, money, currencyOf, conversionFactor } from '../flow/04-analyze/index.js';
+import { getEthRate, getEthRateCached, money, currencyOf, conversionFactor } from '../flow/04-analyze/index.js';
 import { FIELDS, readSettings, writeSettings, ValidationError } from './settings.js';
 import { describeSource } from '../flow/01-scan/sourceUrl.js';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const INDEX_HTML = join(HERE, 'public', 'index.html');
+/**
+ * The dashboard page.
+ *
+ * In the single-file build the HTML is embedded in the executable, so there is
+ * nothing to install alongside it. Running from source it is read from disk on
+ * every request, so edits show on refresh.
+ */
+interface SeaApi { isSea(): boolean; getAsset(key: string, encoding: string): string }
+// Present only in the bundled build; undefined when running from source.
+declare const require: ((m: string) => unknown) | undefined;
+
+function readDashboard(): string {
+  try {
+    if (typeof require === 'function') {
+      const sea = require('node:sea') as SeaApi;
+      if (sea.isSea()) return sea.getAsset('index.html', 'utf8');
+    }
+  } catch {
+    /* not a packaged build */
+  }
+  // Running from source. Resolved lazily: import.meta is not available in the
+  // bundled build, so touching it at module load would crash the executable.
+  const here = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(join(here, 'public', 'index.html'), 'utf8');
+}
 
 function json(res: ServerResponse, code: number, body: unknown): void {
   const text = JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
@@ -57,7 +80,7 @@ async function status() {
     block,
     wallet: getWallet()?.address,
     balanceWei,
-    ethUsd: await getEthRate(),
+    ethUsd: getEthRateCached(),
     minCredibility: config.minCredibility,
     maxPaidMintPrice: config.maxPaidMintPrice,
     currency: currencyOf(config.currency),
@@ -108,8 +131,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const path = url.pathname;
 
   if (path === '/' || path === '/index.html') {
-    // Read per request so edits show on refresh without a restart.
-    const html = readFileSync(INDEX_HTML, 'utf8');
+    const html = readDashboard();
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(html);
     return;
@@ -250,8 +272,19 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   }
 
   if (path === '/api/stop' && req.method === 'POST') {
-    await hunter.stop();
+    await hunter.stop('Stop button on dashboard');
     return json(res, 200, { ok: true });
+  }
+
+  // Shut the whole process down from the dashboard. Needed when the app runs
+  // with its console window hidden, where there is no window to close.
+  if (path === '/api/quit' && req.method === 'POST') {
+    json(res, 200, { ok: true });
+    log.info('Quit requested from dashboard');
+    setTimeout(() => {
+      void hunter.shutdown('Quit button on dashboard').finally(() => process.exit(0));
+    }, 250); // let the response reach the browser first
+    return;
   }
 
   json(res, 404, { error: 'not found' });
@@ -265,12 +298,39 @@ export function startWebServer(): Promise<void> {
     });
   });
 
-  return new Promise((resolve) => {
+  const url = 'http://' + config.webHost + ':' + config.webPort;
+
+  return new Promise((resolve, reject) => {
+    // An unhandled error here closes the window before anyone can read the
+    // stack trace, and "already in use" nearly always means it is open already.
+    server.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log('\n  The hunter is already running.\n');
+        console.log('  Open this in your browser:  ' + url + '\n');
+        console.log('  For a second copy, set WEB_PORT to a different number.\n');
+        reject(new AlreadyRunning(url));
+        return;
+      }
+      if (err.code === 'EACCES') {
+        console.log('\n  Not allowed to use port ' + config.webPort + '.');
+        console.log('  Set WEB_PORT to a number above 1024 and try again.\n');
+      } else {
+        console.log('\n  Could not start the dashboard: ' + err.message + '\n');
+      }
+      reject(err);
+    });
+
     server.listen(config.webPort, config.webHost, () => {
-      const url = 'http://' + config.webHost + ':' + config.webPort;
       console.log('\n  Dashboard ready:  ' + url + '\n');
       log.info('Dashboard listening on ' + url);
       resolve();
     });
   });
+}
+
+/** Thrown when another copy already holds the port. */
+export class AlreadyRunning extends Error {
+  constructor(readonly url: string) {
+    super('already running at ' + url);
+  }
 }

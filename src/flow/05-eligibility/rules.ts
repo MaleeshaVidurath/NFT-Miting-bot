@@ -65,6 +65,21 @@ export async function evaluate(drop: DropInfo): Promise<Eligibility> {
   }
 
   const credibility = await scoreCredibility(drop);
+
+  // An incomplete score is not a low score - it is no score. Paying out on a
+  // number we could not compute is exactly the guess the price check refuses
+  // to make, so refuse here too. It is re-checked on the next sweep.
+  if (credibility.degraded) {
+    return {
+      eligible: false,
+      branch: 'paid',
+      reason: 'cannot verify project right now (' + credibility.unavailable.join('; ') + ') - will retry',
+      credibility,
+      priceUsd,
+      currency: config.currency,
+    };
+  }
+
   if (credibility.veto) {
     return {
       eligible: false,

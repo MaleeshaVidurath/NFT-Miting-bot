@@ -1,10 +1,11 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { reloadConfig, CHAINS, CHAIN_NAMES, type ChainName } from '../core/config.js';
+import { formatEther, formatUnits } from 'ethers';
+import { config, reloadConfig, ENV_FILE, CHAINS, CHAIN_NAMES, type ChainName } from '../core/config.js';
 import { resetProviders } from '../flow/02-chain/provider.js';
 import { CURRENCIES, currencyOf } from '../flow/04-analyze/currencies.js';
 import { parseScanSource, SourceUrlError } from '../flow/01-scan/sourceUrl.js';
 
-const ENV_PATH = '.env';
+const ENV_PATH = ENV_FILE;
 
 /** Settings the dashboard is allowed to change, with validation. */
 export interface Field {
@@ -116,11 +117,45 @@ function parseEnv(text: string): Map<string, string> {
   return out;
 }
 
+/**
+ * The value actually in force, for settings the file does not mention.
+ *
+ * Showing a blank box for a setting that has a working default is misleading -
+ * an unticked "Practice mode" while practice mode is on reads as "live", which
+ * is the most dangerous thing this form could get wrong.
+ *
+ * Fields left out here are genuinely optional: blank means "not set", and that
+ * is the honest thing to display.
+ */
+function effectiveValue(key: string): string | undefined {
+  switch (key) {
+    case 'CHAIN': return config.chain;
+    case 'DRY_RUN': return String(config.dryRun);
+    case 'MIN_CREDIBILITY': return String(config.minCredibility);
+    case 'CURRENCY': return config.currency;
+    case 'MAX_PAID_MINT_PRICE': return String(config.maxPaidMintPrice);
+    case 'DAILY_GAS_BUDGET_ETH': return formatEther(config.dailyGasBudgetWei);
+    case 'MAX_MINTS_PER_RUN': return String(config.maxMintsPerRun);
+    case 'MAX_GAS_GWEI': return formatUnits(config.maxGasPriceWei, 'gwei');
+    case 'VETO_APPLIES_TO_FREE': return String(config.vetoAppliesToFree);
+    case 'OPENSEA_URL': return config.openSeaUrl;
+    case 'OPENSEA_API_BASE': return config.openSeaApiBase;
+    case 'POLL_INTERVAL_MS': return String(config.pollIntervalMs);
+    // PRIVATE_KEY, OPENSEA_API_KEY, RPC_HTTP_URL: blank genuinely means unset.
+    default: return undefined;
+  }
+}
+
 export function readSettings(): Record<string, string> {
   const text = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, 'utf8') : '';
   const env = parseEnv(text);
   const out: Record<string, string> = {};
-  for (const f of FIELDS) out[f.key] = env.get(f.key) ?? '';
+  for (const f of FIELDS) {
+    const written = env.get(f.key);
+    out[f.key] = written !== undefined && written !== ''
+      ? written
+      : effectiveValue(f.key) ?? '';
+  }
   return out;
 }
 

@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RH Freemint Hunter — User Manual</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+
+  :root {
+    --ink: #1a1d23; --dim: #5b6472; --line: #d8dde5;
+    --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --bad: #b42318;
+    --panel: #f6f8fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink); background: #fff;
+    font: 11pt/1.55 "Segoe UI", -apple-system, Roboto, sans-serif;
+  }
+
+  h1 { font-size: 24pt; margin: 0 0 4pt; letter-spacing: -.4pt; }
+  h2 {
+    font-size: 14pt; margin: 22pt 0 8pt; padding-bottom: 4pt;
+    border-bottom: 1.5pt solid var(--line); break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 14pt 0 5pt; break-after: avoid; }
+  p, li { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 9pt; padding-left: 18pt; }
+  li { margin-bottom: 4pt; }
+  code {
+    font-family: Consolas, ui-monospace, monospace; font-size: 9.5pt;
+    background: var(--panel); padding: 1pt 4pt; border-radius: 3pt;
+  }
+  strong { font-weight: 650; }
+
+  .sub { color: var(--dim); font-size: 11pt; margin: 0 0 4pt; }
+  .meta { color: var(--dim); font-size: 9pt; }
+
+  .cover {
+    border: 1.5pt solid var(--line); border-radius: 6pt;
+    padding: 16pt 18pt; margin-bottom: 16pt; background: var(--panel);
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 8pt 0 12pt; font-size: 10pt; }
+  th {
+    text-align: left; background: var(--panel); padding: 6pt 8pt;
+    border: .75pt solid var(--line); font-weight: 650;
+  }
+  td { padding: 6pt 8pt; border: .75pt solid var(--line); vertical-align: top; }
+
+  .box {
+    border-left: 3pt solid var(--accent); background: var(--panel);
+    padding: 9pt 12pt; margin: 10pt 0; break-inside: avoid;
+  }
+  .box.warn { border-left-color: var(--warn); background: #fff8e6; }
+  .box.bad  { border-left-color: var(--bad);  background: #fff1f0; }
+  .box.ok   { border-left-color: var(--ok);   background: #f0f9f2; }
+  .box p:last-child { margin-bottom: 0; }
+  .box .t { font-weight: 650; margin-bottom: 3pt; }
+
+  pre {
+    background: #0d1117; color: #e6edf3; padding: 9pt 11pt; border-radius: 4pt;
+    font-family: Consolas, ui-monospace, monospace; font-size: 9pt; line-height: 1.5;
+    overflow-x: auto; break-inside: avoid; margin: 8pt 0;
+  }
+
+  .flow {
+    font-family: Consolas, ui-monospace, monospace; font-size: 9pt; line-height: 1.5;
+    background: var(--panel); border: .75pt solid var(--line);
+    padding: 12pt; border-radius: 4pt; white-space: pre; break-inside: avoid;
+  }
+
+  .steps { counter-reset: s; list-style: none; padding-left: 0; }
+  .steps > li {
+    counter-increment: s; position: relative; padding-left: 26pt; margin-bottom: 9pt;
+  }
+  .steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: 0;
+    width: 18pt; height: 18pt; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 9.5pt; font-weight: 650;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .page-break { break-before: page; }
+  footer { margin-top: 22pt; padding-top: 8pt; border-top: .75pt solid var(--line); }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>RH Freemint Hunter</h1>
+  <p class="sub">Automatic NFT mint hunter for Robinhood Chain</p>
+  <p class="meta">User manual &middot; Version 1.0</p>
+</div>
+
+<h2>1. What this program does</h2>
+
+<p>It watches for new NFT collections launching on Robinhood Chain and mints the
+ones worth having, automatically. Some free mints sell out within minutes, which
+is why a program does this better than a person watching a screen.</p>
+
+<p>It follows the same four steps every time:</p>
+
+<div class="flow">        Find new and upcoming drops
+                  |
+        Decide whether each one qualifies
+                  |
+        Check you have not already minted it
+                  |
+        Mint one, and write down what happened</div>
+
+<div class="box ok">
+  <div class="t">It starts in Practice Mode</div>
+  <p>The program does everything except actually spend money. You can run it,
+  watch it work, and understand it before any real money is involved.</p>
+</div>
+
+<h2>2. Installing it</h2>
+
+<p>There is no installer. Put <code>RH-Freemint-Hunter.exe</code> in a folder of
+its own — for example <code>Documents\NFT Hunter\</code> — and double-click it.</p>
+
+<p>Your web browser opens the dashboard automatically. Nothing else appears -
+there is no console window to leave open.</p>
+
+<div class="box warn">
+  <div class="t">"Windows protected your PC"</div>
+  <p>Windows shows this for any program it has not seen before. It is not a virus
+  warning. Click <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+</div>
+
+<h3>How to close it</h3>
+<p>Use the <strong>Quit app</strong> button at the top right of the dashboard.
+Closing the browser tab does not stop the program - the browser is only a remote
+control, and the bot keeps running behind it.</p>
+
+<h3>Files it creates beside the program</h3>
+<table>
+  <tr><th style="width:32%">File</th><th>What it holds</th></tr>
+  <tr><td><code>.env</code></td><td>Your settings, including your wallet key. <strong>Never share this file.</strong></td></tr>
+  <tr><td><code>data\mints.json</code></td><td>A record of everything it has minted</td></tr>
+  <tr><td><code>hunter.log</code></td><td>A full activity log. Useful if something goes wrong, since it survives after the program closes.</td></tr>
+</table>
+
+<h2 class="page-break">3. The dashboard</h2>
+
+<table>
+  <tr><th style="width:24%">Tab</th><th>What it shows</th></tr>
+  <tr><td><strong>Dashboard</strong></td><td>Whether it is running, your wallet, your rules, and what is opening soon</td></tr>
+  <tr><td><strong>Drops found</strong></td><td>Every collection it examined, and whether it qualified</td></tr>
+  <tr><td><strong>My mints</strong></td><td>What you actually minted</td></tr>
+  <tr><td><strong>Activity</strong></td><td>A live feed of what it is doing right now</td></tr>
+  <tr><td><strong>Settings</strong></td><td>Everything you can change</td></tr>
+</table>
+
+<h3>The coloured bar is the important part</h3>
+
+<div class="box ok">
+  <div class="t">Green — PRACTICE MODE</div>
+  <p>The bot only pretends to mint. Nothing is spent. Completely safe.</p>
+</div>
+
+<div class="box bad">
+  <div class="t">Red — LIVE MODE</div>
+  <p>The bot can spend real money from your wallet.</p>
+</div>
+
+<p>Trust the coloured bar over anything else on screen. It reflects what the
+program is really doing.</p>
+
+<h3>Three buttons, three different things</h3>
+<table>
+  <tr><th style="width:26%">Button</th><th>What it does</th></tr>
+  <tr><td><strong>Start hunting</strong></td><td>Begins watching for drops</td></tr>
+  <tr><td><strong>Stop</strong></td><td>Stops watching. The program stays open.</td></tr>
+  <tr><td><strong>Quit app</strong></td><td>Closes the program completely</td></tr>
+</table>
+
+<h2>4. The rules it follows</h2>
+
+<div class="flow">        Is the mint free?
+              |
+        YES --+-- always qualifies
+              |
+        NO  --+-- qualifies only if BOTH:
+                    credibility score is 75 or higher
+                    price is under your limit</div>
+
+<h3>What the credibility score means</h3>
+
+<p>A number out of 100, worked out from things the program can verify itself on
+the blockchain:</p>
+
+<ul>
+  <li>Has the project published its contract code for anyone to inspect?</li>
+  <li>Does it have proper artwork and description set up?</li>
+  <li>Are creator royalties configured?</li>
+  <li>Does it have real holders, or nobody?</li>
+  <li>Is the collection size sensible?</li>
+  <li>Is the mint window a reasonable length?</li>
+  <li>Is the name a placeholder like "test"?</li>
+</ul>
+
+<p>A serious project scores high. A thrown-together scam scores low.</p>
+
+<div class="box">
+  <div class="t">Free mints skip the score on purpose</div>
+  <p>A free mint costs only the transaction fee — under one cent. The score
+  exists to protect you from <em>paying</em> for something worthless, so it is
+  not applied when nothing is being paid.</p>
+</div>
+
+<h3>Changing the rules</h3>
+<p>On the Dashboard tab there is a slider for the score and a box for the price
+limit. As you move them, a line underneath tells you what would change, based on
+drops it has already seen — so you can see the effect before committing.</p>
+<p>Nothing is saved until you press <strong>Apply new rules</strong>.</p>
+
+<table>
+  <tr><th style="width:34%">Setting</th><th>Guidance</th></tr>
+  <tr><td>Minimum credibility</td><td>75 is a sensible start. Below 60 starts letting in unverified projects with no real holders.</td></tr>
+  <tr><td>Max price per mint</td><td>Your real spending protection. Keep it low. Set it to <strong>0</strong> for free mints only.</td></tr>
+</table>
+
+<h2 class="page-break">5. Using your own currency</h2>
+
+<p>Under <strong>Settings &rarr; Rules &rarr; Currency</strong> there are 35
+currencies, including Sri Lankan Rupee, Indian Rupee, Euro, Pound and Dirham.</p>
+
+<p>When you change currency, your price limit is <strong>converted
+automatically</strong> so it stays worth the same amount. A limit of $1 becomes
+about Rs&nbsp;332 — not "1 rupee". A line under the dropdown shows the new figure
+before you save.</p>
+
+<h2>6. Using it with real money</h2>
+
+<p>Take these in order. Do not skip step 3.</p>
+
+<ol class="steps">
+  <li><strong>Make a burner wallet.</strong> A brand-new wallet used only for
+  this program. Never your main wallet.</li>
+
+  <li><strong>Put a small amount in it.</strong> 0.001 ETH on Robinhood Chain is
+  about $2 and covers roughly 200 mints. This is the most you can lose.</li>
+
+  <li><strong>Watch it in Practice Mode first.</strong> With money in the wallet
+  but Practice Mode still on, the program does everything short of sending. If
+  the Activity tab shows lines beginning <code>[DRY RUN] would mint</code>, then
+  everything works.</li>
+
+  <li><strong>Then go live.</strong> Press Stop. In Settings, untick Practice
+  Mode. Save. Press Start hunting. The bar turns red.</li>
+</ol>
+
+<div class="box warn">
+  <div class="t">Sensible limits for your first live run</div>
+  <p>Max price per mint <strong>0</strong> (free only) &middot; Max mints per run
+  <strong>1</strong> &middot; Gas budget <strong>0.0005 ETH</strong></p>
+  <p>It will mint exactly one free NFT and stop, so you can check the result
+  before letting it run freely.</p>
+</div>
+
+<div class="box bad">
+  <div class="t">Please read this once</div>
+  <p>This program spends real money without asking each time — that is the whole
+  point of it. Your protection is the limits you set, and the burner wallet
+  holding only what you can afford to lose.</p>
+  <p>A free mint still costs a transaction fee, and the NFT it collects may turn
+  out to be worth nothing. Nobody can promise otherwise.</p>
+</div>
+
+<h2>7. Running it in the background</h2>
+
+<p>Once you trust it, double-click <code>Start-Hidden.vbs</code> instead of the
+<code>.exe</code>. The program runs invisibly — no black window at all.</p>
+
+<p>To close it then, use the <strong>Quit app</strong> button on the dashboard.
+That is the only way to stop it when there is no window.</p>
+
+<h3>Starting it automatically when the computer turns on</h3>
+<ol>
+  <li>Press <code>Windows key + R</code></li>
+  <li>Type <code>shell:startup</code> and press Enter</li>
+  <li>Put a shortcut to <code>Start-Hidden.vbs</code> into the folder that opens</li>
+</ol>
+
+<h2 class="page-break">8. When something looks wrong</h2>
+
+<table>
+  <tr><th style="width:38%">What you see</th><th>What it means</th></tr>
+  <tr><td>"Windows protected your PC"</td><td>Normal for a new program. More info &rarr; Run anyway.</td></tr>
+  <tr><td>Double-clicking does nothing</td><td>It is already running - open <code>http://127.0.0.1:4663</code>. If the browser does not open either, check <code>hunter.log</code>.</td></tr>
+  <tr><td>Browser says it cannot reach the page</td><td>Wait ten seconds and refresh. If it still fails, the program has closed - check <code>hunter.log</code>.</td></tr>
+  <tr><td>"NOT CONNECTED" in red</td><td>The program has closed. Start it again, then reload the page. <code>hunter.log</code> says why it stopped.</td></tr>
+  <tr><td>Nothing in "Drops found"</td><td>Normal when nobody is launching. Check the Activity tab to confirm it is working.</td></tr>
+  <tr><td>"Simulation reverted"</td><td>It tried a mint that would have failed and backed out before spending. Working correctly.</td></tr>
+  <tr><td>A drop was skipped</td><td>The reason is in the Eligible column on Drops found — usually price or score.</td></tr>
+  <tr><td>"Scanner has not run for..."</td><td>A scanner stalled. Press Stop, then Start hunting.</td></tr>
+</table>
+
+<h2>9. Keeping yourself safe</h2>
+
+<ul>
+  <li>Stay in Practice Mode until you understand what it does.</li>
+  <li>Use a burner wallet with small amounts. Never your main wallet.</li>
+  <li>Your <code>.env</code> file contains your private key. Anyone who gets it
+  controls that wallet. Never send it to anyone, and never post a screenshot of
+  the Settings page.</li>
+  <li>The dashboard is only reachable from your own computer. Keep it that way.</li>
+  <li><code>hunter.log</code> records what the program did. It contains no keys,
+  so it is safe to share when asking for help.</li>
+  <li>Keep the price limit low. It is what stands between you and an expensive
+  mistake.</li>
+</ul>
+
+<footer>
+  <p class="meta">RH Freemint Hunter — user manual. The dashboard runs at
+  <code>http://127.0.0.1:4663</code> on your own computer only.</p>
+</footer>
+
+</body>
+</html>

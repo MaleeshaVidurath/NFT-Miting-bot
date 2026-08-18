@@ -8,7 +8,7 @@ async function main(): Promise<void> {
   await hunter.start();
 
   const stop = async () => {
-    await hunter.shutdown();
+    await hunter.shutdown('process signal (Ctrl+C or window closed)');
     process.exit(0);
   };
   process.on('SIGINT', stop);

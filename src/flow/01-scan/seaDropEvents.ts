@@ -2,6 +2,7 @@ import { Contract, id } from 'ethers';
 import { getProvider } from '../02-chain/provider.js';
 import { config } from '../../core/config.js';
 import { log } from '../../core/logger.js';
+import { beat } from '../../core/health.js';
 import type { CandidateHandler, Detector } from './types.js';
 
 /**
@@ -72,7 +73,10 @@ export function seaDropEventDetector(): Detector {
         if (!running) return;
         try {
           await sweep(onCandidate);
+          beat('seadrop-events');
         } catch (err) {
+          // Still a heartbeat: the loop is alive, this sweep just failed.
+          beat('seadrop-events');
           log.error('SeaDrop event sweep failed', (err as Error).message);
         }
         if (running) timer = setTimeout(tick, config.pollIntervalMs);

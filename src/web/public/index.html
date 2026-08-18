@@ -38,6 +38,7 @@
   .banner { padding: 12px 24px; font-weight: 600; text-align: center; }
   .banner.practice { background: #1f2a12; color: #d6f5a3; border-bottom: 1px solid #3d5220; }
   .banner.live     { background: #3d1113; color: #ffc9c4; border-bottom: 1px solid #6e2422; }
+  .banner.nowallet { background: #3a2d0c; color: #f0d68a; border-bottom: 1px solid #6b5410; }
 
   nav { display: flex; gap: 4px; padding: 12px 24px 0; border-bottom: 1px solid var(--line); }
   nav button {
@@ -138,6 +139,7 @@
   <span class="spacer"></span>
   <button id="startBtn" class="primary">Start hunting</button>
   <button id="stopBtn" class="danger" disabled>Stop</button>
+  <button id="quitBtn" title="Close the app completely">Quit app</button>
 </header>
 
 <div id="banner" class="banner practice">PRACTICE MODE — the bot will not spend any real money</div>
@@ -182,6 +184,7 @@
         <div class="rule">
           <label for="usdInput">Most I will pay per mint</label>
           <div class="sub">A paid drop above this price is never minted.
+            Set it to <b>0</b> for free mints only.
             Change the currency in <b>Settings → Rules</b>.</div>
           <div class="row">
             <span class="val" style="min-width:auto" id="curSymbol">$</span>
@@ -290,6 +293,8 @@ function fmtWhen(unix) {
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
+  // Settings are only fetched on load, which goes stale if the app restarts.
+  if (b.dataset.tab === 'settings' && connected) loadSettings();
 });
 
 // ---- state ----
@@ -306,9 +311,36 @@ function money(n) {
 }
 
 // ---- status ----
+let connected = true;
+
+function setDisconnected() {
+  if (!connected) return;
+  connected = false;
+  $('runState').innerHTML = '<span class="dot off"></span>Not connected';
+  $('startBtn').disabled = true;
+  $('stopBtn').disabled = true;
+  $('banner').className = 'banner live';
+  $('banner').textContent = 'NOT CONNECTED — the app has closed. Restart it, then reload this page.';
+}
+
 async function refreshStatus() {
   let s;
-  try { s = await (await fetch('/api/status')).json(); } catch { return; }
+  try {
+    s = await (await fetch('/api/status')).json();
+  } catch {
+    setDisconnected();
+    return;
+  }
+
+  // Came back after a restart: the form may be showing values from the
+  // previous run, so pull everything fresh.
+  if (!connected) {
+    connected = true;
+    loadSettings();
+    loadDrops();
+    loadLedger();
+  }
+
   ethUsd = s.ethUsd;
 
   const on = s.running;
@@ -325,10 +357,19 @@ async function refreshStatus() {
   $('cBalance').textContent = bal === null ? '—' : bal.toFixed(5) + ' ETH';
   $('cChain').textContent = (s.rpcOk ? 'Connected' : 'Offline') + ' · ' + s.chain;
 
-  $('banner').className = 'banner ' + (s.dryRun ? 'practice' : 'live');
-  $('banner').textContent = s.dryRun
-    ? 'PRACTICE MODE — the bot will not spend any real money'
-    : 'LIVE MODE — the bot can spend real money from your wallet';
+  // Live mode without a wallet cannot transact at all. Saying it "can spend
+  // real money" would be false, and alarming for no reason.
+  if (s.dryRun) {
+    $('banner').className = 'banner practice';
+    $('banner').textContent = 'PRACTICE MODE — the bot will not spend any real money';
+  } else if (!s.wallet) {
+    $('banner').className = 'banner nowallet';
+    $('banner').textContent =
+      'LIVE MODE — but no wallet is set, so nothing can be minted. Add a wallet in Settings.';
+  } else {
+    $('banner').className = 'banner live';
+    $('banner').textContent = 'LIVE MODE — the bot can spend real money from your wallet';
+  }
 
   if (s.source) {
     const bad = !s.source.ok;
@@ -350,7 +391,7 @@ async function refreshStatus() {
     saved.cred = s.minCredibility;
     saved.usd = s.maxPaidMintPrice;
     $('credRange').value = s.minCredibility;
-    $('usdInput').value = s.maxPaidMintUsd;
+    $('usdInput').value = s.maxPaidMintPrice;
     paintRules();
   }
 }
@@ -542,11 +583,17 @@ $('settingsForm').onsubmit = async (e) => {
 const saved = { cred: null, usd: null };
 
 function currentRules() {
-  return { cred: Number($('credRange').value), usd: Number($('usdInput').value) };
+  const raw = $('usdInput').value.trim();
+  return {
+    cred: Number($('credRange').value),
+    // An empty box would read as 0, which silently blocks every paid mint.
+    usd: raw === '' ? null : Number(raw),
+  };
 }
 function rulesDirty() {
   if (saved.cred === null) return false;
   const c = currentRules();
+  if (c.usd === null) return false;          // incomplete, not a change
   return c.cred !== saved.cred || c.usd !== saved.usd;
 }
 
@@ -560,6 +607,13 @@ async function paintRules() {
   $('resetRules').disabled = !dirty;
   $('rulesMsg').textContent = dirty ? 'Not saved yet' : '';
 
+  if (c.usd === null) {
+    $('impact').innerHTML = 'Enter a price limit to see what these rules would do. ' +
+      'Set it to <b>0</b> if you only ever want free mints.';
+    $('applyRules').disabled = true;
+    return;
+  }
+
   clearTimeout(impactTimer);
   impactTimer = setTimeout(async () => {
     try {
@@ -569,13 +623,28 @@ async function paintRules() {
         $('impact').innerHTML = 'No drops seen yet — press <b>Start hunting</b> to see how these rules would behave.';
         return;
       }
-      $('impact').innerHTML =
-        'Of the <b>' + r.considered + '</b> drops still open that the bot has seen: ' +
-        '<b class="good">' + r.eligible + ' would qualify</b> ' +
-        '(' + r.free + ' free, ' + r.paidPass + ' paid).<br>' +
-        '<span class="bad">' + r.failScore + '</span> rejected on score, ' +
-        '<span class="bad">' + r.failPrice + '</span> over ' + money(c.usd) +
-        (r.unscored ? ', ' + r.unscored + ' not scored yet' : '') + '.';
+      // Only mention a reason that actually rejected something, otherwise the
+      // line reads as a list of failures that did not happen.
+      const reasons = [];
+      if (r.failPrice) reasons.push('<span class="bad">' + r.failPrice + '</span> cost more than ' + money(c.usd));
+      if (r.failScore) reasons.push('<span class="bad">' + r.failScore + '</span> scored under ' + c.cred);
+      if (r.unscored) reasons.push(r.unscored + ' not scored yet');
+
+      let html =
+        'Of the <b>' + r.considered + '</b> drops still open that the bot has seen, ' +
+        '<b class="good">' + r.eligible + ' would qualify</b>' +
+        ' — ' + r.free + ' free and ' + r.paidPass + ' paid.';
+      if (reasons.length) html += '<br>Skipped: ' + reasons.join(', ') + '.';
+
+      // A zero limit is a real choice, but it looks like a bug unless named.
+      if (Number(c.usd) === 0) {
+        html += '<br><b>Your price limit is ' + money(0) + ', so paid drops are all skipped.</b> ' +
+                'That means free mints only. Raise the limit to allow paid ones.';
+      } else if (r.failScore === 0 && r.failPrice > 0) {
+        html += '<br><span class="muted">Price is checked first, so drops rejected on price ' +
+                'never reach the score check.</span>';
+      }
+      $('impact').innerHTML = html;
     } catch {}
   }, 200);
 }
@@ -618,6 +687,18 @@ $('startBtn').onclick = async () => {
   await fetch('/api/start', { method: 'POST' });
   refreshStatus();
 };
+$('quitBtn').onclick = async () => {
+  if (!confirm('Close the hunter completely?\n\nIt will stop watching for drops until you start it again.')) return;
+  $('quitBtn').disabled = true;
+  try { await fetch('/api/quit', { method: 'POST' }); } catch {}
+  setTimeout(() => {
+    document.body.innerHTML =
+      '<div style="padding:60px;text-align:center;font:16px system-ui;color:#8b949e">' +
+      '<h2 style="color:#e6edf3">The hunter has closed.</h2>' +
+      '<p>You can close this tab. Start it again from RH-Freemint-Hunter.exe.</p></div>';
+  }, 600);
+};
+
 $('stopBtn').onclick = async () => {
   $('stopBtn').disabled = true;
   await fetch('/api/stop', { method: 'POST' });

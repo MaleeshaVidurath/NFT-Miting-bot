@@ -2,6 +2,7 @@ import { makeClient, type OSCollection, type OpenSeaClient } from './openSeaClie
 import { getProvider } from '../02-chain/provider.js';
 import { config } from '../../core/config.js';
 import { log } from '../../core/logger.js';
+import { beat } from '../../core/health.js';
 import { parseScanSource, SourceUrlError, type ScanSource } from './sourceUrl.js';
 import type { CandidateHandler, Detector } from './types.js';
 
@@ -99,7 +100,9 @@ export function openSeaCollectionsDetector(): Detector {
         if (!running) return;
         try {
           await sweep(onCandidate, client);
+          beat('opensea-collections');
         } catch (err) {
+          beat('opensea-collections');
           log.error('OpenSea sweep failed', (err as Error).message);
         }
         if (running) timer = setTimeout(tick, config.pollIntervalMs);

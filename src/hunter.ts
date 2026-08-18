@@ -1,6 +1,7 @@
 import { config } from './core/config.js';
 import { log } from './core/logger.js';
 import { bus } from './core/events.js';
+import { clearBeats, heartbeats, stale } from './core/health.js';
 import { detectors, assertDetectorsConfigured, type MintCandidate } from './flow/01-scan/index.js';
 import { verifyConnection, shutdown, resetProviders } from './flow/02-chain/index.js';
 import { inspectDrop, UpcomingWatchlist, formatDrop, type DropInfo } from './flow/03-drops/index.js';
@@ -29,6 +30,7 @@ export class Hunter {
       queued: mintQueue.pending,
       seen: this.seen.size,
       ledger: ledger.stats,
+      heartbeats: heartbeats(),
     };
   }
 
@@ -55,18 +57,47 @@ export class Hunter {
     ledger.load();
     assertDetectorsConfigured();
 
+    // Starting a detector runs its first sweep, which for the on-chain scanner
+    // means a block backfill lasting tens of seconds. Stop can land in the
+    // middle of that, so re-check between every step - otherwise the loop
+    // carries on and starts scanners after the bot has been stopped.
     for (const d of detectors) {
+      if (!this.active) break;
       await d.start((c) => this.onCandidate(c));
+      if (!this.active) {
+        // Stopped while this one was starting: undo it and give up on the rest.
+        await d.stop().catch(() => {});
+        log.info('Startup cancelled - hunter was stopped while starting ' + d.name);
+        return;
+      }
       log.info('Detector started: ' + d.name);
     }
 
-    this.statusTimer = setInterval(() => log.info('Status', this.stats), config.watchRecheckMs);
+    if (!this.active) {
+      log.info('Startup cancelled - hunter was stopped during startup');
+      return;
+    }
+
+    clearBeats();
+    this.statusTimer = setInterval(() => {
+      log.info('Status', this.stats);
+      // A scanner that stopped rescheduling itself would otherwise be silent.
+      const quiet = stale(config.pollIntervalMs * 4);
+      for (const h of quiet) {
+        log.warn('Scanner "' + h.detector + '" has not run for ' + h.secondsAgo + 's - it may have stalled');
+      }
+    }, config.watchRecheckMs);
     this.statusTimer.unref?.();
   }
 
-  async stop(): Promise<void> {
+  /**
+   * @param reason who asked, so an unexpected stop leaves evidence in the log
+   *   rather than the bot just going quiet.
+   */
+  async stop(reason = 'unspecified'): Promise<void> {
     if (!this.active) return;
     this.active = false;
+    log.info('Hunter stopping - requested by: ' + reason);
 
     if (this.statusTimer) clearInterval(this.statusTimer);
     this.watchlist.stop();
@@ -77,8 +108,8 @@ export class Hunter {
   }
 
   /** Full teardown, including RPC sockets. Used on process exit. */
-  async shutdown(): Promise<void> {
-    await this.stop();
+  async shutdown(reason = 'process exit'): Promise<void> {
+    await this.stop(reason);
     await shutdown();
   }
 
@@ -101,22 +132,28 @@ export class Hunter {
       return;
     }
 
+    // Inspecting took a network round trip; the user may have pressed Stop
+    // during it. Acting now would queue a mint or a timer on a stopped bot.
+    if (!this.active) return;
+
     log.info('Candidate (' + candidate.source + '): ' + formatDrop(drop));
     publishDrop(drop);
 
     switch (drop.status) {
-      case 'upcoming':
+      case 'upcoming': {
         // Screen before queuing so an ineligible project is never watched.
         // It is re-evaluated when it opens, since price and credibility change.
-        if (await screenUpcoming(drop)) this.watchlist.add(drop);
+        const eligible = await screenUpcoming(drop);
+        if (eligible && this.active) this.watchlist.add(drop);
         return;
+      }
 
       case 'live':
-        await handleDrop(drop);
+        if (this.active) await handleDrop(drop);
         return;
 
       case 'unknown':
-        if (config.mintUnknownSchedule) await handleDrop(drop);
+        if (config.mintUnknownSchedule && this.active) await handleDrop(drop);
         return;
 
       default:

@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { bus } from './events.js';
+import { writeLogLine } from './logfile.js';
 
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 } as const;
 type Level = keyof typeof LEVELS;
@@ -17,6 +18,8 @@ function emit(level: Level, msg: string, extra?: unknown) {
   else console.log(line, extra);
 
   const text = extra === undefined ? msg : msg + ' ' + safe(extra);
+  // The packaged build has no console, so the file is the durable record.
+  writeLogLine(at + ' [' + level.toUpperCase() + '] ' + text);
   const entry = { at, level, msg: text };
   history.push(entry);
   if (history.length > HISTORY_LIMIT) history.shift();

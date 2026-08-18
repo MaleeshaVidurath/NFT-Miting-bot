@@ -8,8 +8,9 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { Wallet } from 'ethers';
 import { createInterface } from 'node:readline/promises';
+import { ENV_FILE } from '../core/config.js';
 
-const ENV = '.env';
+const ENV = ENV_FILE;
 
 async function main() {
   const existing = existsSync(ENV) ? readFileSync(ENV, 'utf8') : '';

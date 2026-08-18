@@ -1,0 +1,37 @@
+RH FREEMINT HUNTER
+==================
+
+1. Read RH-Freemint-Hunter-Manual.pdf first. It is short.
+
+2. Double-click RH-Freemint-Hunter.exe
+
+   Windows may say "Windows protected your PC".
+   That is normal for a new program.
+   Click "More info", then "Run anyway".
+
+3. Your browser opens the dashboard. There is no console
+   window - the program runs quietly in the background.
+
+4. It starts in PRACTICE MODE. It cannot spend any money
+   until you add a wallet and turn practice mode off.
+   Watch it for a while first.
+
+5. To close it, press "Quit app" on the dashboard.
+   Closing the browser tab does NOT stop it.
+
+
+WHAT THE FILES ARE
+------------------
+RH-Freemint-Hunter.exe        The program. Nothing to install.
+RH-Freemint-Hunter-Manual.pdf The manual.
+
+It creates these next to itself when you use it:
+  .env             your settings and wallet key - NEVER SHARE
+  data\mints.json  what it has minted
+  hunter.log       activity log, safe to share for help
+
+
+IMPORTANT
+---------
+Never send anyone your .env file.
+Never post a screenshot of the Settings page.

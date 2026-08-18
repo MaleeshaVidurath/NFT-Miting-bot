@@ -7,7 +7,21 @@ Arbitrum via `CHAIN=`.
 Step 1 scaffold: chain connection, config with hard safety rails, a pluggable
 detector interface, and a mint executor that simulates before it sends.
 
-**Non-technical user? Read [GUIDE.md](GUIDE.md) and double-click `START-HUNTER.bat`.**
+**Non-technical user? Read [GUIDE.md](GUIDE.md).**
+
+## Three ways to run it
+
+| | Needs installed | Best for |
+| --- | --- | --- |
+| `build/RH-Freemint-Hunter.exe` | nothing | handing to someone else; shows a console window |
+| `tools/Start-Hidden.vbs` | nothing | daily use - runs with no window, quit from the dashboard |
+| `START-HUNTER.bat` / `npm start` | Node.js | development |
+
+For start-on-boot, put a shortcut to `Start-Hidden.vbs` in the Windows Startup
+folder (`Win+R` -> `shell:startup`).
+
+Build the standalone executable with `npm run package` (~77 MB, embeds Node,
+all dependencies and the dashboard page).
 
 ## Setup
 

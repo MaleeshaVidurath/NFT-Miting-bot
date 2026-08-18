@@ -15,6 +15,10 @@ export interface Signal {
 
 export interface CredibilityReport {
   address: string;
+  /** True when a data source could not be reached, so the score is unreliable. */
+  degraded: boolean;
+  /** What could not be read, for the log and the dashboard. */
+  unavailable: string[];
   /** 0-100, normalised over applicable signals only. */
   score: number;
   signals: Signal[];
@@ -30,16 +34,28 @@ interface BlockscoutToken {
   symbol?: string;
 }
 
-async function bsGet<T>(path: string): Promise<T | undefined> {
+/**
+ * "not found" and "could not ask" are different answers.
+ *
+ * Collapsing both into undefined made scores unstable: a timed-out lookup made
+ * a verified contract look unverified, and dropped the holder signal from the
+ * calculation entirely - which RAISES the score of a collection that has no
+ * holders. A flaky network must never make a project look better.
+ */
+type Lookup<T> = { state: 'ok'; data: T } | { state: 'missing' } | { state: 'error'; why: string };
+
+async function bsGet<T>(path: string): Promise<Lookup<T>> {
+  if (!config.explorerApiBase) return { state: 'error', why: 'no explorer configured for this network' };
   try {
     const res = await fetch(config.explorerApiBase + path, {
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(config.explorerTimeoutMs),
     });
-    if (!res.ok) return undefined;
-    return (await res.json()) as T;
-  } catch {
-    return undefined;
+    if (res.status === 404) return { state: 'missing' };
+    if (!res.ok) return { state: 'error', why: 'explorer returned ' + res.status };
+    return { state: 'ok', data: (await res.json()) as T };
+  } catch (err) {
+    return { state: 'error', why: (err as Error).name === 'TimeoutError' ? 'explorer timed out' : 'explorer unreachable' };
   }
 }
 
@@ -99,8 +115,15 @@ export async function scoreCredibility(drop: DropInfo): Promise<CredibilityRepor
   const signals: Signal[] = [];
   let veto: string | undefined;
 
-  const token = await bsGet<BlockscoutToken>('/api/v2/tokens/' + drop.address);
-  const addr = await bsGet<{ is_verified?: boolean }>('/api/v2/addresses/' + drop.address);
+  const tokenLookup = await bsGet<BlockscoutToken>('/api/v2/tokens/' + drop.address);
+  const addrLookup = await bsGet<{ is_verified?: boolean }>('/api/v2/addresses/' + drop.address);
+
+  const unavailable: string[] = [];
+  if (tokenLookup.state === 'error') unavailable.push('token info (' + tokenLookup.why + ')');
+  if (addrLookup.state === 'error') unavailable.push('contract info (' + addrLookup.why + ')');
+
+  const token = tokenLookup.state === 'ok' ? tokenLookup.data : undefined;
+  const addr = addrLookup.state === 'ok' ? addrLookup.data : undefined;
 
   // Explorer reputation is a hard veto, not a weighted signal.
   const reputation = token?.reputation?.toLowerCase();
@@ -108,12 +131,14 @@ export async function scoreCredibility(drop: DropInfo): Promise<CredibilityRepor
     veto = 'explorer reputation: ' + reputation;
   }
 
+  // Unreachable is not the same as unverified - leave it out rather than
+  // scoring a zero we cannot justify.
   const verified = addr?.is_verified === true;
   signals.push({
     name: 'contract-verified',
     weight: 20,
-    value: verified ? 1 : 0,
-    detail: verified ? 'source verified' : 'unverified source',
+    value: addrLookup.state === 'error' ? undefined : verified ? 1 : 0,
+    detail: addrLookup.state === 'error' ? 'could not check' : verified ? 'source verified' : 'unverified source',
   });
 
   const nq = nameQuality(drop.name ?? token?.name);
@@ -125,8 +150,10 @@ export async function scoreCredibility(drop: DropInfo): Promise<CredibilityRepor
   const ws = windowSanity(drop);
   signals.push({ name: 'mint-window', weight: 10, value: ws.value, detail: ws.detail });
 
-  const holders = token?.holders_count ? Number(token.holders_count) : undefined;
-  const tr = traction(holders, drop.totalMinted);
+  const holders = token?.holders_count !== undefined ? Number(token.holders_count) : undefined;
+  const tr = tokenLookup.state === 'error'
+    ? { value: undefined, detail: 'could not check' }
+    : traction(holders, drop.totalMinted);
   signals.push({ name: 'holder-traction', weight: 15, value: tr.value, detail: tr.detail });
 
   // Metadata completeness: a real project sets these before launch.
@@ -193,8 +220,12 @@ export async function scoreCredibility(drop: DropInfo): Promise<CredibilityRepor
   const earned = applicable.reduce((a, s) => a + s.weight * (s.value ?? 0), 0);
   const score = totalWeight === 0 ? 0 : Math.round((earned / totalWeight) * 100);
 
+  const degraded = unavailable.length > 0;
+  if (degraded) {
+    log.warn('Credibility for ' + drop.address + ' is incomplete: ' + unavailable.join(', '));
+  }
   log.debug('Credibility ' + drop.address + ' = ' + score);
-  return { address: drop.address, score, signals, veto };
+  return { address: drop.address, score, signals, veto, degraded, unavailable };
 }
 
 export function formatReport(r: CredibilityReport): string {

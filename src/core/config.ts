@@ -1,7 +1,16 @@
 import dotenv from 'dotenv';
 import { parseEther, parseUnits } from 'ethers';
 
-dotenv.config();
+/**
+ * Where settings are read from and written to.
+ *
+ * Docker sets this to a path inside a mounted directory: bind-mounting a
+ * single file makes the atomic write-then-rename in settings.ts fail, because
+ * the file itself is the mount point and cannot be replaced.
+ */
+export const ENV_FILE = process.env.ENV_FILE || '.env';
+
+dotenv.config({ path: ENV_FILE });
 
 export type ChainName = 'robinhood' | 'robinhood-testnet' | 'ethereum' | 'base' | 'arbitrum';
 
@@ -138,6 +147,7 @@ function build() {
     // Pin the ETH rate instead of fetching it (0 = fetch live)
     ethPriceOverride: num('ETH_PRICE_OVERRIDE', num('ETH_USD_PRICE', 0)) || undefined,
     priceCacheMs: num('PRICE_CACHE_MS', 300000),
+    priceTimeoutMs: num('PRICE_TIMEOUT_MS', 6000),
     explorerApiBase: process.env.EXPLORER_API_BASE || meta.explorer || '',
     explorerTimeoutMs: num('EXPLORER_TIMEOUT_MS', 8000),
 
@@ -153,6 +163,11 @@ function build() {
 
     // Give up on a contract after this many failed mint attempts
     maxAttemptsPerContract: num('MAX_ATTEMPTS_PER_CONTRACT', 3),
+
+    // --- Logging to file ---
+    // Written next to the program; the packaged build has no console window.
+    logFile: process.env.LOG_FILE ?? 'hunter.log',
+    logFileMaxBytes: num('LOG_FILE_MAX_BYTES', 5_000_000),
 
     // --- Persistence ---
     ledgerPath: process.env.LEDGER_PATH ?? 'data/mints.json',
@@ -178,6 +193,6 @@ export const config: Config = build();
 
 /** Re-read .env from disk and refresh `config` in place. */
 export function reloadConfig(): void {
-  dotenv.config({ override: true });
+  dotenv.config({ path: ENV_FILE, override: true });
   Object.assign(config, build());
 }

@@ -23,7 +23,12 @@ export async function getEthRate(code = config.currency): Promise<number | undef
 
   try {
     const url = COINGECKO + '?ids=ethereum&vs_currencies=' + encodeURIComponent(cur);
-    const res = await fetch(url, { headers: { accept: 'application/json' } });
+    const res = await fetch(url, {
+      headers: { accept: 'application/json' },
+      // Without this the request can hang indefinitely, and anything awaiting
+      // it hangs too - which is how the whole dashboard used to stall.
+      signal: AbortSignal.timeout(config.priceTimeoutMs),
+    });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const body = (await res.json()) as { ethereum?: Record<string, number> };
     const rate = body.ethereum?.[cur];
@@ -39,6 +44,29 @@ export async function getEthRate(code = config.currency): Promise<number | undef
 
 /** Backwards-compatible alias - the dashboard still calls this "eth price". */
 export const getEthUsd = getEthRate;
+
+/**
+ * Whatever rate is already known, without waiting on the network.
+ *
+ * The dashboard polls status every few seconds; it must never block on a
+ * third-party price feed. A refresh is kicked off in the background so the
+ * value appears on a later poll.
+ */
+export function getEthRateCached(code = config.currency): number | undefined {
+  if (config.ethPriceOverride) return config.ethPriceOverride;
+  const cur = currencyOf(code).code;
+  const hit = cache.get(cur);
+
+  const stale = !hit || Date.now() - hit.at >= config.priceCacheMs;
+  if (stale && !inFlight.has(cur)) {
+    inFlight.add(cur);
+    void getEthRate(code).finally(() => inFlight.delete(cur));
+  }
+  return hit?.rate;
+}
+
+/** Currencies with a refresh already running, so we do not stack requests. */
+const inFlight = new Set<string>();
 
 /** Convert wei to the active currency. Undefined when no rate is available. */
 export async function weiToFiat(wei: bigint, code = config.currency): Promise<number | undefined> {

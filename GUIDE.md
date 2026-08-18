@@ -4,23 +4,49 @@ No coding needed. This walks you through everything.
 
 ---
 
-## 1. One-time setup
+## 1. Starting it
 
-**Install Node.js** (only once, on this computer):
+**Double-click `RH-Freemint-Hunter.exe`.**
 
-1. Go to **https://nodejs.org**
-2. Download the big green **LTS** button
-3. Run the installer, click Next until it finishes
+That is the whole installation. Nothing else is needed on your computer.
 
-**Start the hunter:**
+A black window opens and your browser goes to the dashboard automatically.
+**Leave the black window open** — closing it stops the bot.
 
-Double-click **`START-HUNTER.bat`**.
+### Running it without the black window
 
-The first run takes about a minute while it installs itself. A black window
-opens — that is normal. **Leave it open.** Your browser opens the dashboard at
-`http://127.0.0.1:4663`.
+Once you trust it, double-click **`Start-Hidden.vbs`** instead. The bot runs
+invisibly in the background — no window at all.
 
-Closing the black window shuts the bot down.
+To close it then, use the **Quit app** button at the top right of the
+dashboard. That is the only way to stop it when there is no window.
+
+**Stop** and **Quit app** are different:
+
+- **Stop** — stops hunting. The app stays open, so you can change settings and
+  start again.
+- **Quit app** — closes the whole thing.
+
+To start it automatically when your computer turns on: press `Win+R`, type
+`shell:startup`, press Enter, and put a shortcut to `Start-Hidden.vbs` in the
+folder that opens.
+
+### "Windows protected your PC"
+
+Windows shows this for any program it has not seen before. It is not a virus
+warning.
+
+Click **More info**, then **Run anyway**.
+
+### Where does it keep things?
+
+Two files appear next to the .exe the first time you use it:
+
+- `.env` — your settings, including your wallet key. **Never share this file.**
+- `data/mints.json` — what it has minted
+
+Keep the .exe in its own folder so these stay tidy. Moving the .exe elsewhere
+starts you from scratch, since it looks for those files beside itself.
 
 ---
 
