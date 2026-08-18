@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RH Freemint Hunter</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2230; --line: #30363d;
+    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --free: #a371f7;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+  h2 { font-size: 15px; margin: 0 0 12px; color: var(--dim); font-weight: 600;
+       text-transform: uppercase; letter-spacing: .6px; }
+  .spacer { flex: 1; }
+
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel2); color: var(--text);
+    padding: 9px 18px;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .primary { background: var(--ok); border-color: var(--ok); color: #06210f; }
+  .danger  { background: var(--bad); border-color: var(--bad); color: #2b0806; }
+
+  .banner { padding: 12px 24px; font-weight: 600; text-align: center; }
+  .banner.practice { background: #1f2a12; color: #d6f5a3; border-bottom: 1px solid #3d5220; }
+  .banner.live     { background: #3d1113; color: #ffc9c4; border-bottom: 1px solid #6e2422; }
+
+  nav { display: flex; gap: 4px; padding: 12px 24px 0; border-bottom: 1px solid var(--line); }
+  nav button {
+    border: none; border-bottom: 2px solid transparent; background: none;
+    border-radius: 0; color: var(--dim); padding: 8px 14px;
+  }
+  nav button.on { color: var(--text); border-bottom-color: var(--accent); }
+
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  section { display: none; }
+  section.on { display: block; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+  .card .k { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .card .v { font-size: 22px; font-weight: 600; margin-top: 4px; word-break: break-word; }
+  .card .v.sm { font-size: 14px; font-weight: 500; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 20px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--dim); font-size: 12px; text-transform: uppercase;
+       letter-spacing: .5px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px; border-bottom: 1px solid #21262d; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .wrap { overflow-x: auto; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .tag.free { background: #2d1f47; color: #d2b7ff; }
+  .tag.paid { background: #1e2a3d; color: #9fc6ff; }
+  .tag.live { background: #12301c; color: #82e0a0; }
+  .tag.upcoming { background: #3a2d0c; color: #f0d68a; }
+  .tag.ended, .tag.unknown, .tag.sold-out { background: #262b33; color: var(--dim); }
+  .tag.yes { background: #12301c; color: #82e0a0; }
+  .tag.no  { background: #3d1113; color: #ffb3ad; }
+
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--dim); }
+  .muted { color: var(--dim); }
+  .empty { color: var(--dim); text-align: center; padding: 36px; }
+
+  #log { background: #0a0e14; border: 1px solid var(--line); border-radius: var(--radius);
+         padding: 12px; height: 460px; overflow-y: auto;
+         font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.7; }
+  #log div { white-space: pre-wrap; word-break: break-word; }
+  .lv-warn { color: var(--warn); } .lv-error { color: var(--bad); } .lv-debug { color: #6e7681; }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field .help { color: var(--dim); font-size: 13px; margin-bottom: 8px; }
+  .field input[type=text], .field input[type=password], .field input[type=number] {
+    width: 100%; max-width: 460px; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: #0d1117; color: var(--text); font: inherit;
+  }
+  .field select {
+    width: 100%; max-width: 460px; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: #0d1117; color: var(--text); font: inherit;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .switch { display: flex; align-items: center; gap: 10px; }
+  .switch input { width: 18px; height: 18px; accent-color: var(--ok); }
+  .group { margin-bottom: 28px; }
+  .note { padding: 12px 14px; border-radius: 8px; background: #1a1f2b; border-left: 3px solid var(--accent);
+          color: var(--dim); font-size: 13px; margin-bottom: 20px; }
+  .note.warn { border-left-color: var(--warn); }
+  #saveMsg { margin-left: 12px; font-weight: 600; }
+  .preview { margin-top: 8px; font-size: 13px; padding: 8px 12px; border-radius: 8px;
+             background: #10151d; border-left: 3px solid var(--line); max-width: 460px; }
+  .preview.ok { border-left-color: var(--ok); color: #a5e5b8; }
+  .preview.bad { border-left-color: var(--bad); color: #ffb3ad; }
+  .preview.warn { border-left-color: var(--warn); color: #f0d68a; }
+  .srcline { margin-bottom: 6px; }
+
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+  .rule label { display: block; font-weight: 600; margin-bottom: 2px; }
+  .rule .sub { color: var(--dim); font-size: 13px; margin-bottom: 10px; }
+  .rule .row { display: flex; align-items: center; gap: 12px; }
+  .rule input[type=range] { flex: 1; accent-color: var(--accent); }
+  .rule .val { font-size: 20px; font-weight: 700; min-width: 76px; text-align: right; }
+  .rule input[type=number] {
+    width: 120px; padding: 8px 10px; border-radius: 8px; font: inherit;
+    border: 1px solid var(--line); background: #0d1117; color: var(--text);
+  }
+  .impact { margin-top: 16px; padding: 12px 14px; border-radius: 8px; background: #10151d;
+            border-left: 3px solid var(--accent); font-size: 14px; }
+  .impact b { color: var(--text); }
+  .impact .bad { color: #ffb3ad; } .impact .good { color: #a5e5b8; }
+  .ruleActions { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+  .chg { color: var(--warn); font-weight: 600; font-size: 13px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; }
+  .dot.on { background: var(--ok); } .dot.off { background: #484f58; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RH Freemint Hunter</h1>
+  <span id="runState" class="muted"><span class="dot off"></span>Stopped</span>
+  <span class="spacer"></span>
+  <button id="startBtn" class="primary">Start hunting</button>
+  <button id="stopBtn" class="danger" disabled>Stop</button>
+</header>
+
+<div id="banner" class="banner practice">PRACTICE MODE — the bot will not spend any real money</div>
+
+<nav>
+  <button data-tab="home" class="on">Dashboard</button>
+  <button data-tab="drops">Drops found</button>
+  <button data-tab="results">My mints</button>
+  <button data-tab="activity">Activity</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+
+<main>
+  <section id="home" class="on">
+    <div class="cards">
+      <div class="card"><div class="k">Status</div><div class="v" id="cStatus">Stopped</div></div>
+      <div class="card"><div class="k">Drops seen</div><div class="v" id="cSeen">0</div></div>
+      <div class="card"><div class="k">Waiting to open</div><div class="v" id="cWatch">0</div></div>
+      <div class="card"><div class="k">Mints done</div><div class="v" id="cMinted">0</div></div>
+      <div class="card"><div class="k">Wallet</div><div class="v sm" id="cWallet">Not set</div></div>
+      <div class="card"><div class="k">Balance</div><div class="v sm" id="cBalance">—</div></div>
+      <div class="card"><div class="k">Network</div><div class="v sm" id="cChain">—</div></div>
+      <div class="card"><div class="k">ETH price</div><div class="v sm" id="cEth">—</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Rules for paid mints</h2>
+      <div class="muted" style="margin-bottom:18px">
+        Free mints are always eligible — these two only apply to drops that cost money.
+      </div>
+
+      <div class="rules">
+        <div class="rule">
+          <label for="credRange">Minimum credibility score</label>
+          <div class="sub">A paid drop scoring below this is skipped.</div>
+          <div class="row">
+            <input type="range" id="credRange" min="0" max="100" step="1">
+            <span class="val" id="credVal">—</span>
+          </div>
+        </div>
+
+        <div class="rule">
+          <label for="usdInput">Most I will pay per mint</label>
+          <div class="sub">A paid drop above this price is never minted.
+            Change the currency in <b>Settings → Rules</b>.</div>
+          <div class="row">
+            <span class="val" style="min-width:auto" id="curSymbol">$</span>
+            <input type="number" id="usdInput" min="0" step="0.01">
+          </div>
+        </div>
+      </div>
+
+      <div class="impact" id="impact">Loading…</div>
+
+      <div class="ruleActions">
+        <button id="applyRules" class="primary" disabled>Apply new rules</button>
+        <button id="resetRules" disabled>Undo</button>
+        <span id="rulesMsg" class="chg"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Where it is scanning</h2>
+      <div id="sourceInfo" class="muted">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Opening soon</h2>
+      <div class="wrap"><table>
+        <thead><tr><th>Collection</th><th>Price</th><th>Opens</th></tr></thead>
+        <tbody id="upcomingBody"><tr><td colspan="3" class="empty">Nothing queued yet</td></tr></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="drops">
+    <div class="panel">
+      <h2>Every drop the bot has looked at</h2>
+      <div class="wrap"><table>
+        <thead><tr>
+          <th>Collection</th><th>Type</th><th>Status</th><th>Price</th>
+          <th>Score</th><th>Eligible</th><th>Supply</th>
+        </tr></thead>
+        <tbody id="dropsBody"><tr><td colspan="7" class="empty">No drops yet — press “Start hunting”</td></tr></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="cards">
+      <div class="card"><div class="k">Minted</div><div class="v" id="rMinted">0</div></div>
+      <div class="card"><div class="k">Skipped</div><div class="v" id="rSkipped">0</div></div>
+      <div class="card"><div class="k">Failed</div><div class="v" id="rFailed">0</div></div>
+      <div class="card"><div class="k">Practice runs</div><div class="v" id="rDry">0</div></div>
+    </div>
+    <div class="panel">
+      <h2>History</h2>
+      <div class="wrap"><table>
+        <thead><tr><th>When</th><th>Collection</th><th>Outcome</th><th>Details</th></tr></thead>
+        <tbody id="ledgerBody"><tr><td colspan="4" class="empty">Nothing yet</td></tr></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="activity">
+    <div class="panel">
+      <h2>Live activity</h2>
+      <div id="log"></div>
+    </div>
+  </section>
+
+  <section id="settings">
+    <div class="note warn">
+      Changes save to your settings file straight away. <b>Stop the bot before changing settings</b>,
+      then start it again so they take effect.
+    </div>
+    <form id="settingsForm"><div id="settingsFields"></div>
+      <button type="submit" class="primary">Save settings</button>
+      <span id="saveMsg"></span>
+    </form>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const short = (a) => a ? a.slice(0, 6) + '…' + a.slice(-4) : '—';
+
+function ethOf(wei) {
+  if (wei === undefined || wei === null) return null;
+  return Number(BigInt(wei)) / 1e18;
+}
+function fmtPrice(d, ethUsd) {
+  if (d.isFree) return '<span class="tag free">FREE</span>';
+  const eth = ethOf(d.priceWei);
+  if (eth === null) return '—';
+  const fiat = ethUsd ? ' (' + money(eth * ethUsd) + ')' : '';
+  return esc(eth.toFixed(6)) + ' ETH' + fiat;
+}
+function fmtWhen(unix) {
+  if (!unix) return '—';
+  const mins = Math.round((unix * 1000 - Date.now()) / 60000);
+  if (mins > 1440) return 'in ' + Math.round(mins / 1440) + ' days';
+  if (mins > 60) return 'in ' + Math.round(mins / 60) + ' hours';
+  if (mins > 0) return 'in ' + mins + ' min';
+  return Math.abs(mins) + ' min ago';
+}
+
+// ---- tabs ----
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('on', s.id === b.dataset.tab));
+});
+
+// ---- state ----
+let ethUsd = null;
+let cur = { code: 'usd', symbol: '$', decimals: 2, label: 'US Dollar' };
+const drops = new Map();
+
+function money(n) {
+  if (n === undefined || n === null) return '—';
+  const s = Number(n).toLocaleString('en-US', {
+    minimumFractionDigits: cur.decimals, maximumFractionDigits: cur.decimals,
+  });
+  return cur.symbol + (/[A-Za-z]$/.test(cur.symbol) ? ' ' : '') + s;
+}
+
+// ---- status ----
+async function refreshStatus() {
+  let s;
+  try { s = await (await fetch('/api/status')).json(); } catch { return; }
+  ethUsd = s.ethUsd;
+
+  const on = s.running;
+  $('runState').innerHTML = '<span class="dot ' + (on ? 'on' : 'off') + '"></span>' + (on ? 'Running' : 'Stopped');
+  $('startBtn').disabled = on;
+  $('stopBtn').disabled = !on;
+  $('cStatus').textContent = on ? 'Running' : 'Stopped';
+  $('cSeen').textContent = s.seen ?? 0;
+  $('cWatch').textContent = s.watching ?? 0;
+  $('cMinted').textContent = s.ledger?.minted ?? 0;
+  $('cWallet').textContent = s.wallet ? short(s.wallet) : 'Not set';
+  $('cWallet').title = s.wallet || '';
+  const bal = ethOf(s.balanceWei);
+  $('cBalance').textContent = bal === null ? '—' : bal.toFixed(5) + ' ETH';
+  $('cChain').textContent = (s.rpcOk ? 'Connected' : 'Offline') + ' · ' + s.chain;
+
+  $('banner').className = 'banner ' + (s.dryRun ? 'practice' : 'live');
+  $('banner').textContent = s.dryRun
+    ? 'PRACTICE MODE — the bot will not spend any real money'
+    : 'LIVE MODE — the bot can spend real money from your wallet';
+
+  if (s.source) {
+    const bad = !s.source.ok;
+    $('sourceInfo').innerHTML =
+      '<div class="srcline"><b>' + esc(s.source.url || '(not set)') + '</b></div>' +
+      '<div class="' + (bad ? 'preview bad' : 'preview ok') + '">' +
+      (bad ? esc(s.source.label) : 'Scanning ' + esc(s.source.label)) + '</div>' +
+      '<div class="srcline muted" style="margin-top:8px">Change this in <b>Settings → Drop source</b>. ' +
+      'On-chain SeaDrop scanning always follows the network the bot is connected to.</div>';
+  }
+
+  // Only sync the sliders when the user is not mid-edit, so typing is not stomped.
+  cur = s.currency || cur;
+  $('curSymbol').textContent = cur.symbol;
+  $('usdInput').step = cur.decimals === 0 ? '1' : '0.01';
+  $('cEth').textContent = s.ethUsd ? money(s.ethUsd) : '—';
+
+  if (!rulesDirty()) {
+    saved.cred = s.minCredibility;
+    saved.usd = s.maxPaidMintPrice;
+    $('credRange').value = s.minCredibility;
+    $('usdInput').value = s.maxPaidMintUsd;
+    paintRules();
+  }
+}
+
+// ---- drops ----
+function renderDrops() {
+  const rows = [...drops.values()].sort((a, b) => (b.seenAt || '').localeCompare(a.seenAt || ''));
+  if (!rows.length) return;
+  $('dropsBody').innerHTML = rows.map(d => `
+    <tr>
+      <td>${esc(d.name || '(no name)')}<div class="mono">${esc(d.address)}</div></td>
+      <td><span class="tag ${d.isFree ? 'free' : 'paid'}">${d.isFree ? 'FREE' : 'PAID'}</span></td>
+      <td><span class="tag ${esc(d.status)}">${esc(d.status)}</span></td>
+      <td>${fmtPrice(d, ethUsd)}</td>
+      <td>${d.credibility === undefined ? '<span class="muted">—</span>' : esc(d.credibility) + '/100'}</td>
+      <td>${d.eligible === undefined ? '<span class="muted">—</span>'
+           : '<span class="tag ' + (d.eligible ? 'yes' : 'no') + '">' + (d.eligible ? 'YES' : 'NO') + '</span>'
+             + (d.reason ? '<div class="mono">' + esc(d.reason) + '</div>' : '')}</td>
+      <td class="muted">${d.totalMinted ?? '?'} / ${d.maxSupply ?? '?'}</td>
+    </tr>`).join('');
+}
+
+async function loadDrops() {
+  try {
+    const list = await (await fetch('/api/drops')).json();
+    list.forEach(d => drops.set(d.address.toLowerCase(), d));
+    renderDrops();
+  } catch {}
+}
+
+async function loadUpcoming() {
+  try {
+    const list = await (await fetch('/api/upcoming')).json();
+    $('upcomingBody').innerHTML = list.length ? list.map(d => `
+      <tr>
+        <td>${esc(d.name || '(no name)')}<div class="mono">${esc(d.address)}</div></td>
+        <td>${fmtPrice(d, ethUsd)}</td>
+        <td>${esc(fmtWhen(d.startTime))}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="3" class="empty">Nothing queued yet</td></tr>';
+  } catch {}
+}
+
+// ---- ledger ----
+async function loadLedger() {
+  try {
+    const l = await (await fetch('/api/ledger')).json();
+    $('rMinted').textContent = l.stats.minted;
+    $('rSkipped').textContent = l.stats.skipped;
+    $('rFailed').textContent = l.stats.failed;
+    $('rDry').textContent = l.stats.dryRun;
+    const rows = l.records.slice().reverse();
+    $('ledgerBody').innerHTML = rows.length ? rows.map(r => `
+      <tr>
+        <td class="mono">${esc((r.at || '').slice(0, 19).replace('T', ' '))}</td>
+        <td>${esc(r.name || r.address)}</td>
+        <td><span class="tag ${r.outcome === 'minted' ? 'yes' : r.outcome === 'failed' ? 'no' : 'unknown'}">${esc(r.outcome)}</span></td>
+        <td class="mono">${esc(r.txHash || r.reason || '')}</td>
+      </tr>`).join('')
+      : '<tr><td colspan="4" class="empty">Nothing yet</td></tr>';
+  } catch {}
+}
+
+// ---- log ----
+const logBox = $('log');
+function addLog(l) {
+  const atBottom = logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight < 60;
+  const div = document.createElement('div');
+  div.className = 'lv-' + l.level;
+  div.textContent = (l.at || '').slice(11, 19) + '  ' + l.msg;
+  logBox.appendChild(div);
+  while (logBox.childElementCount > 800) logBox.removeChild(logBox.firstChild);
+  if (atBottom) logBox.scrollTop = logBox.scrollHeight;
+}
+
+// ---- settings ----
+async function loadSettings() {
+  const { fields, values } = await (await fetch('/api/settings')).json();
+  const groups = {};
+  fields.forEach(f => (groups[f.group] ||= []).push(f));
+
+  $('settingsFields').innerHTML = Object.entries(groups).map(([name, list]) => `
+    <div class="group"><h2>${esc(name)}</h2>${list.map(f => {
+      const v = values[f.key] ?? '';
+      if (f.type === 'toggle') return `
+        <div class="field"><div class="switch">
+          <input type="checkbox" id="f_${f.key}" ${v === 'true' ? 'checked' : ''}>
+          <label for="f_${f.key}">${esc(f.label)}</label>
+        </div><div class="help">${esc(f.help)}</div></div>`;
+      if (f.type === 'select') return `
+        <div class="field">
+          <label for="f_${f.key}">${esc(f.label)}</label>
+          <div class="help">${esc(f.help)}</div>
+          <select id="f_${f.key}">${(f.options || []).map(o =>
+            `<option value="${esc(o.value)}" ${o.value === v ? 'selected' : ''}>${esc(o.label)}</option>`
+          ).join('')}</select>
+          ${f.key === 'CHAIN' ? '<div class="preview" id="chainPreview"></div>' : ''}
+        </div>`;
+      const type = f.type === 'password' ? 'password' : f.type === 'number' ? 'number' : 'text';
+      return `
+        <div class="field">
+          <label for="f_${f.key}">${esc(f.label)}</label>
+          <div class="help">${esc(f.help)}</div>
+          <input type="${type}" id="f_${f.key}" value="${esc(v)}"
+            ${f.min !== undefined ? 'min="' + f.min + '"' : ''} ${f.max !== undefined ? 'max="' + f.max + '"' : ''}>
+          ${f.key === 'OPENSEA_URL' ? '<div class="preview" id="urlPreview">Checking…</div>' : ''}
+        </div>`;
+    }).join('')}</div>`).join('');
+
+  $('settingsForm').dataset.keys = JSON.stringify(fields.map(f => [f.key, f.type]));
+
+  const chainSel = $('f_CHAIN');
+  if (chainSel) {
+    const startValue = chainSel.value;
+    const box = $('chainPreview');
+    const paint = () => {
+      if (chainSel.value === startValue) {
+        box.className = 'preview';
+        box.textContent = 'Currently hunting on this network.';
+      } else {
+        box.className = 'preview warn';
+        box.textContent = 'Switching network. Stop the bot, save, then start it again. ' +
+          'Also update "Where to scan for drops" to match, or the two will disagree.';
+      }
+    };
+    chainSel.addEventListener('change', paint);
+    paint();
+  }
+
+  const curSel = $('f_CURRENCY');
+  if (curSel) {
+    const box = document.createElement('div');
+    box.className = 'preview';
+    box.id = 'curPreview';
+    curSel.parentElement.appendChild(box);
+    const paintCur = async () => {
+      try {
+        const r = await (await fetch('/api/currency-preview?to=' + encodeURIComponent(curSel.value))).json();
+        if (!r.ok) { box.className = 'preview bad'; box.textContent = r.label; return; }
+        if (!r.changed) { box.className = 'preview'; box.textContent = 'Prices are shown in this currency.'; return; }
+        box.className = 'preview warn';
+        box.textContent = 'Your price limit ' + r.current + ' will be converted to about ' +
+          r.converted + ' so it stays worth the same.';
+      } catch {}
+    };
+    curSel.addEventListener('change', paintCur);
+    paintCur();
+  }
+
+  const urlInput = $('f_OPENSEA_URL');
+  if (urlInput) {
+    let t;
+    const check = async () => {
+      const box = $('urlPreview');
+      if (!box) return;
+      try {
+        const r = await (await fetch('/api/source-preview?url=' + encodeURIComponent(urlInput.value))).json();
+        if (!r.ok) { box.className = 'preview bad'; box.textContent = r.label; return; }
+        if (r.mismatch) { box.className = 'preview warn'; box.textContent = 'Will scan ' + r.label + '. ' + r.mismatch; return; }
+        box.className = 'preview ok';
+        box.textContent = 'Will scan ' + r.label;
+      } catch { box.className = 'preview'; box.textContent = ''; }
+    };
+    urlInput.addEventListener('input', () => { clearTimeout(t); t = setTimeout(check, 300); });
+    check();
+  }
+}
+
+$('settingsForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const keys = JSON.parse($('settingsForm').dataset.keys || '[]');
+  const body = {};
+  for (const [key, type] of keys) {
+    const el = $('f_' + key);
+    body[key] = type === 'toggle' ? String(el.checked) : el.value;
+  }
+  const msg = $('saveMsg');
+  msg.textContent = 'Saving…'; msg.style.color = '';
+  const res = await fetch('/api/settings', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const out = await res.json();
+  if (out.ok) { msg.textContent = 'Saved'; msg.style.color = 'var(--ok)'; refreshStatus(); }
+  else { msg.textContent = out.error; msg.style.color = 'var(--bad)'; }
+  setTimeout(() => (msg.textContent = ''), 5000);
+};
+
+// ---- threshold editor ----
+const saved = { cred: null, usd: null };
+
+function currentRules() {
+  return { cred: Number($('credRange').value), usd: Number($('usdInput').value) };
+}
+function rulesDirty() {
+  if (saved.cred === null) return false;
+  const c = currentRules();
+  return c.cred !== saved.cred || c.usd !== saved.usd;
+}
+
+let impactTimer;
+async function paintRules() {
+  const c = currentRules();
+  $('credVal').textContent = c.cred + '/100';
+
+  const dirty = rulesDirty();
+  $('applyRules').disabled = !dirty;
+  $('resetRules').disabled = !dirty;
+  $('rulesMsg').textContent = dirty ? 'Not saved yet' : '';
+
+  clearTimeout(impactTimer);
+  impactTimer = setTimeout(async () => {
+    try {
+      const q = '?minCredibility=' + c.cred + '&maxPaidMintPrice=' + c.usd;
+      const r = await (await fetch('/api/rules-preview' + q)).json();
+      if (!r.considered) {
+        $('impact').innerHTML = 'No drops seen yet — press <b>Start hunting</b> to see how these rules would behave.';
+        return;
+      }
+      $('impact').innerHTML =
+        'Of the <b>' + r.considered + '</b> drops still open that the bot has seen: ' +
+        '<b class="good">' + r.eligible + ' would qualify</b> ' +
+        '(' + r.free + ' free, ' + r.paidPass + ' paid).<br>' +
+        '<span class="bad">' + r.failScore + '</span> rejected on score, ' +
+        '<span class="bad">' + r.failPrice + '</span> over ' + money(c.usd) +
+        (r.unscored ? ', ' + r.unscored + ' not scored yet' : '') + '.';
+    } catch {}
+  }, 200);
+}
+
+$('credRange').addEventListener('input', paintRules);
+$('usdInput').addEventListener('input', paintRules);
+
+$('resetRules').onclick = () => {
+  $('credRange').value = saved.cred;
+  $('usdInput').value = saved.usd;
+  paintRules();
+};
+
+$('applyRules').onclick = async () => {
+  const c = currentRules();
+  $('applyRules').disabled = true;
+  const msg = $('rulesMsg');
+  msg.textContent = 'Saving…';
+  const res = await fetch('/api/rules', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ minCredibility: c.cred, maxPaidMintPrice: c.usd }),
+  });
+  const out = await res.json();
+  if (out.ok) {
+    saved.cred = out.minCredibility; saved.usd = out.maxPaidMintPrice;
+    msg.style.color = 'var(--ok)';
+    msg.textContent = 'Saved — applies to the next drop found';
+    loadSettings();
+  } else {
+    msg.style.color = 'var(--bad)';
+    msg.textContent = out.error;
+  }
+  paintRules();
+  setTimeout(() => { msg.textContent = ''; msg.style.color = ''; }, 6000);
+};
+
+// ---- controls ----
+$('startBtn').onclick = async () => {
+  $('startBtn').disabled = true;
+  await fetch('/api/start', { method: 'POST' });
+  refreshStatus();
+};
+$('stopBtn').onclick = async () => {
+  $('stopBtn').disabled = true;
+  await fetch('/api/stop', { method: 'POST' });
+  refreshStatus();
+};
+
+// ---- live stream ----
+const es = new EventSource('/api/events');
+es.addEventListener('log', e => addLog(JSON.parse(e.data)));
+es.addEventListener('state', () => { refreshStatus(); loadUpcoming(); });
+es.addEventListener('drop', e => {
+  const d = JSON.parse(e.data);
+  drops.set(d.address.toLowerCase(), d);
+  renderDrops();
+  paintRules();
+});
+es.addEventListener('result', () => { loadLedger(); refreshStatus(); });
+
+// ---- boot ----
+(async function boot() {
+  try { (await (await fetch('/api/logs')).json()).forEach(addLog); } catch {}
+  await Promise.all([refreshStatus(), loadDrops(), loadLedger(), loadSettings(), loadUpcoming()]);
+  setInterval(refreshStatus, 5000);
+  setInterval(loadUpcoming, 20000);
+})();
+</script>
+</body>
+</html>

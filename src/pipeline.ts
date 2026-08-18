@@ -22,6 +22,8 @@ import { hasWalletMinted } from './flow/06-wallet/index.js';
 import { attemptMint } from './flow/07-mint/index.js';
 import { ledger } from './flow/08-save/index.js';
 import { SerialQueue } from './flow/09-next/index.js';
+import { publishVerdict } from './flow/03-drops/registry.js';
+import { bus } from './core/events.js';
 
 export const mintQueue = new SerialQueue();
 
@@ -79,6 +81,13 @@ async function mintAndRecord(drop: DropInfo): Promise<void> {
 
   log.info('Result ' + drop.address + ': ' + outcome + (result.txHash ? ' tx=' + result.txHash : '') +
     (result.reason ? ' (' + result.reason + ')' : ''));
+  bus.emitTyped('result', {
+    address: drop.address,
+    name: drop.name,
+    outcome,
+    txHash: result.txHash,
+    reason: result.reason,
+  });
 }
 
 /**
@@ -88,6 +97,12 @@ async function mintAndRecord(drop: DropInfo): Promise<void> {
 export async function handleDrop(drop: DropInfo): Promise<void> {
   const verdict = await evaluate(drop);
   log.info(formatEligibility(verdict) + ' - ' + drop.address + ' ' + (drop.name ?? ''));
+  publishVerdict(drop.address, {
+    eligible: verdict.eligible,
+    reason: verdict.reason,
+    credibility: verdict.credibility?.score,
+    priceUsd: verdict.priceUsd,
+  });
   if (!verdict.eligible) return;
 
   await mintQueue.push(drop.address, () => mintAndRecord(drop));
@@ -97,5 +112,11 @@ export async function handleDrop(drop: DropInfo): Promise<void> {
 export async function screenUpcoming(drop: DropInfo): Promise<boolean> {
   const verdict = await evaluate(drop);
   log.info(formatEligibility(verdict) + ' - upcoming ' + drop.address + ' ' + (drop.name ?? ''));
+  publishVerdict(drop.address, {
+    eligible: verdict.eligible,
+    reason: verdict.reason,
+    credibility: verdict.credibility?.score,
+    priceUsd: verdict.priceUsd,
+  });
   return verdict.eligible || config.watchIneligible;
 }

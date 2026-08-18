@@ -1,7 +1,7 @@
 import { config } from '../../core/config.js';
 import type { DropInfo } from '../03-drops/types.js';
 import { scoreCredibility, type CredibilityReport } from '../04-analyze/credibility.js';
-import { weiToUsd } from '../04-analyze/price.js';
+import { weiToFiat, money } from '../04-analyze/price.js';
 
 export interface Eligibility {
   eligible: boolean;
@@ -10,6 +10,7 @@ export interface Eligibility {
   reason: string;
   credibility?: CredibilityReport;
   priceUsd?: number;
+  currency?: string;
 }
 
 /**
@@ -45,20 +46,21 @@ export async function evaluate(drop: DropInfo): Promise<Eligibility> {
   }
 
   // Paid branch: price gate first, it is cheap and rejects most candidates.
-  const priceUsd = await weiToUsd(priceWei);
+  const priceUsd = await weiToFiat(priceWei);
   if (priceUsd === undefined) {
     return {
       eligible: false,
       branch: 'paid',
-      reason: 'ETH/USD rate unavailable - cannot verify price cap, refusing to guess',
+      reason: 'Exchange rate unavailable - cannot verify the price cap, refusing to guess',
     };
   }
-  if (priceUsd > config.maxPaidMintUsd) {
+  if (priceUsd > config.maxPaidMintPrice) {
     return {
       eligible: false,
       branch: 'paid',
-      reason: 'price $' + priceUsd.toFixed(4) + ' exceeds $' + config.maxPaidMintUsd + ' cap',
+      reason: 'price ' + money(priceUsd) + ' exceeds ' + money(config.maxPaidMintPrice) + ' cap',
       priceUsd,
+      currency: config.currency,
     };
   }
 
@@ -70,6 +72,7 @@ export async function evaluate(drop: DropInfo): Promise<Eligibility> {
       reason: 'vetoed - ' + credibility.veto,
       credibility,
       priceUsd,
+      currency: config.currency,
     };
   }
   if (credibility.score < config.minCredibility) {
@@ -79,15 +82,17 @@ export async function evaluate(drop: DropInfo): Promise<Eligibility> {
       reason: 'credibility ' + credibility.score + '/100 below ' + config.minCredibility,
       credibility,
       priceUsd,
+      currency: config.currency,
     };
   }
 
   return {
     eligible: true,
     branch: 'paid',
-    reason: 'credibility ' + credibility.score + '/100 and price $' + priceUsd.toFixed(4),
+    reason: 'credibility ' + credibility.score + '/100 and price ' + money(priceUsd),
     credibility,
     priceUsd,
+    currency: config.currency,
   };
 }
 

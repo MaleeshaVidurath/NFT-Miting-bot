@@ -57,6 +57,25 @@ export async function verifyConnection(): Promise<void> {
   }
 }
 
+/**
+ * Drop cached providers and wallet so the next call rebuilds them from the
+ * current config.
+ *
+ * Without this, switching network in the dashboard would keep talking to the
+ * old chain: the provider is cached at module level and pins its chain id.
+ */
+export function resetProviders(): void {
+  try {
+    wsProvider?.destroy();
+    httpProvider?.destroy();
+  } catch {
+    /* already gone */
+  }
+  httpProvider = undefined;
+  wsProvider = undefined;
+  wallet = undefined;
+}
+
 export async function shutdown(): Promise<void> {
   await wsProvider?.destroy();
   httpProvider?.destroy();

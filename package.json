@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "start": "tsx src/ui.ts",
     "typecheck": "tsc --noEmit",
     "scan:check": "tsx src/scripts/checkScan.ts",
     "drops:scan": "tsx src/scripts/findDrops.ts",
@@ -15,7 +15,10 @@
     "drops:eligible": "tsx src/scripts/eligible.ts",
     "check:minted": "tsx src/scripts/checkMinted.ts",
     "ledger": "tsx src/scripts/ledger.ts",
-    "flow:check": "tsx src/scripts/checkFlow.ts"
+    "flow:check": "tsx src/scripts/checkFlow.ts",
+    "ui": "tsx src/ui.ts",
+    "headless": "tsx src/index.ts",
+    "wallet:new": "tsx src/scripts/newWallet.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -1,7 +1,7 @@
 import { config } from '../../core/config.js';
 import { log } from '../../core/logger.js';
 
-const BASE = 'https://api.opensea.io/api/v2';
+
 
 export interface OSCollection {
   collection: string;
@@ -34,7 +34,7 @@ export class OpenSeaClient {
   constructor(private readonly apiKey: string) {}
 
   private async get<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
-    const url = new URL(BASE + path);
+    const url = new URL(config.openSeaApiBase.replace(/\/+$/, '') + path);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
 
     const res = await fetch(url, {

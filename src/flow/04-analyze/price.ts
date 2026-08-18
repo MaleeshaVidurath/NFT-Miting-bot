@@ -1,40 +1,63 @@
 import { formatEther } from 'ethers';
 import { config } from '../../core/config.js';
 import { log } from '../../core/logger.js';
+import { currencyOf, formatMoney } from './currencies.js';
 
-const COINGECKO = 'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd';
+const COINGECKO = 'https://api.coingecko.com/api/v3/simple/price';
 
-let cached: { usd: number; at: number } | undefined;
+const cache = new Map<string, { rate: number; at: number }>();
 
 /**
- * ETH/USD, cached. Robinhood Chain pays gas and mint prices in ETH.
+ * ETH priced in a fiat currency, cached per currency.
  *
- * ETH_USD_PRICE pins the rate, which keeps eligibility decisions deterministic
- * and removes a network dependency from the mint hot path.
+ * ETH_PRICE_OVERRIDE pins the rate, which keeps eligibility decisions
+ * deterministic and removes a network dependency from the mint hot path. It is
+ * interpreted in the currently selected currency.
  */
-export async function getEthUsd(): Promise<number | undefined> {
-  if (config.ethUsdOverride) return config.ethUsdOverride;
+export async function getEthRate(code = config.currency): Promise<number | undefined> {
+  const cur = currencyOf(code).code;
+  if (config.ethPriceOverride) return config.ethPriceOverride;
 
-  const fresh = cached && Date.now() - cached.at < config.priceCacheMs;
-  if (fresh) return cached!.usd;
+  const hit = cache.get(cur);
+  if (hit && Date.now() - hit.at < config.priceCacheMs) return hit.rate;
 
   try {
-    const res = await fetch(COINGECKO, { headers: { accept: 'application/json' } });
+    const url = COINGECKO + '?ids=ethereum&vs_currencies=' + encodeURIComponent(cur);
+    const res = await fetch(url, { headers: { accept: 'application/json' } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const body = (await res.json()) as { ethereum?: { usd?: number } };
-    const usd = body.ethereum?.usd;
-    if (typeof usd !== 'number' || usd <= 0) throw new Error('bad payload');
-    cached = { usd, at: Date.now() };
-    return usd;
+    const body = (await res.json()) as { ethereum?: Record<string, number> };
+    const rate = body.ethereum?.[cur];
+    if (typeof rate !== 'number' || rate <= 0) throw new Error('no rate for ' + cur);
+    cache.set(cur, { rate, at: Date.now() });
+    return rate;
   } catch (err) {
-    log.warn('ETH price fetch failed: ' + (err as Error).message);
+    log.warn('ETH price fetch failed (' + cur + '): ' + (err as Error).message);
     // A stale rate beats no rate; better than silently treating a mint as free.
-    return cached?.usd;
+    return cache.get(cur)?.rate;
   }
 }
 
-export async function weiToUsd(wei: bigint): Promise<number | undefined> {
-  const rate = await getEthUsd();
+/** Backwards-compatible alias - the dashboard still calls this "eth price". */
+export const getEthUsd = getEthRate;
+
+/** Convert wei to the active currency. Undefined when no rate is available. */
+export async function weiToFiat(wei: bigint, code = config.currency): Promise<number | undefined> {
+  const rate = await getEthRate(code);
   if (rate === undefined) return undefined;
   return Number(formatEther(wei)) * rate;
+}
+
+/**
+ * Ratio for restating an amount from one currency into another.
+ * Derived from ETH's price in each, so no separate FX feed is needed.
+ */
+export async function conversionFactor(from: string, to: string): Promise<number | undefined> {
+  if (currencyOf(from).code === currencyOf(to).code) return 1;
+  const [a, b] = await Promise.all([getEthRate(from), getEthRate(to)]);
+  if (!a || !b) return undefined;
+  return b / a;
+}
+
+export function money(amount: number, code = config.currency): string {
+  return formatMoney(amount, code);
 }

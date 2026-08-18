@@ -18,3 +18,5 @@ export function assertDetectorsConfigured(): void {
 }
 
 export type { Detector, MintCandidate, CandidateHandler } from './types.js';
+
+export * from './sourceUrl.js';

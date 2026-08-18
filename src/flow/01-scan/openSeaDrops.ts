@@ -1,12 +1,15 @@
-import { makeClient, type OSCollection } from './openSeaClient.js';
+import { makeClient, type OSCollection, type OpenSeaClient } from './openSeaClient.js';
 import { getProvider } from '../02-chain/provider.js';
 import { config } from '../../core/config.js';
 import { log } from '../../core/logger.js';
+import { parseScanSource, SourceUrlError, type ScanSource } from './sourceUrl.js';
 import type { CandidateHandler, Detector } from './types.js';
 
 /**
- * Polls OpenSea for newly created collections on the configured chain and
- * emits each contract address once, as a candidate.
+ * Polls OpenSea and emits each new contract address once, as a candidate.
+ *
+ * What gets polled comes from the scan source URL, which the dashboard can
+ * change: either every collection on a chain, or one named collection.
  *
  * This detector deliberately does NOT judge whether a mint is free - that is
  * the executor's static-call simulation. It only surfaces new arrivals.
@@ -16,13 +19,30 @@ export function openSeaCollectionsDetector(): Detector {
   let timer: NodeJS.Timeout | undefined;
   let running = false;
 
-  async function sweep(onCandidate: CandidateHandler, client: NonNullable<ReturnType<typeof makeClient>>) {
-    const page = await client.listCollections(config.openSeaChain, config.openSeaPageSize);
+  /** Re-read each sweep, so a source change applies without a code change. */
+  function currentSource(): ScanSource | undefined {
+    try {
+      return parseScanSource(config.openSeaUrl);
+    } catch (err) {
+      if (err instanceof SourceUrlError) log.warn('Scan source unusable: ' + err.message);
+      return undefined;
+    }
+  }
+
+  function contractsFor(col: OSCollection, chain: string): string[] {
+    return (col.contracts ?? []).filter((c) => c.chain === chain).map((c) => c.address);
+  }
+
+  async function emit(
+    collections: OSCollection[],
+    chain: string,
+    onCandidate: CandidateHandler,
+  ): Promise<number> {
     const blockNumber = await getProvider().getBlockNumber();
     let fresh = 0;
 
-    for (const col of page.collections ?? []) {
-      for (const contract of contractsOnChain(col)) {
+    for (const col of collections) {
+      for (const contract of contractsFor(col, chain)) {
         const key = contract.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
@@ -41,13 +61,27 @@ export function openSeaCollectionsDetector(): Detector {
         });
       }
     }
-    log.debug(`OpenSea sweep: ${page.collections?.length ?? 0} collections, ${fresh} new contracts`);
+    return fresh;
   }
 
-  function contractsOnChain(col: OSCollection): string[] {
-    return (col.contracts ?? [])
-      .filter((c) => c.chain === config.openSeaChain)
-      .map((c) => c.address);
+  async function sweep(onCandidate: CandidateHandler, client: OpenSeaClient): Promise<void> {
+    const source = currentSource();
+    if (!source) return;
+
+    if (source.kind === 'collection') {
+      const col = await client.getCollection(source.slug);
+      // A single collection is pinned to whatever chain it lives on, so take
+      // the chain from the collection itself rather than assuming.
+      const chain = col.contracts?.[0]?.chain ?? config.openSeaChain;
+      const fresh = await emit([col], chain, onCandidate);
+      log.debug('OpenSea sweep: collection ' + source.slug + ', ' + fresh + ' new contracts');
+      return;
+    }
+
+    const page = await client.listCollections(source.chain, config.openSeaPageSize);
+    const list = page.collections ?? [];
+    const fresh = await emit(list, source.chain, onCandidate);
+    log.debug('OpenSea sweep: ' + list.length + ' collections on ' + source.chain + ', ' + fresh + ' new');
   }
 
   return {
@@ -56,6 +90,9 @@ export function openSeaCollectionsDetector(): Detector {
     async start(onCandidate) {
       const client = makeClient();
       if (!client) return;
+
+      const source = currentSource();
+      if (source) log.info('OpenSea scan source: ' + source.label);
       running = true;
 
       const tick = async () => {

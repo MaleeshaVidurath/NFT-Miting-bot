@@ -68,6 +68,9 @@ Outside the flow:
 | `src/pipeline.ts` | Wires steps 5-9 together; reads top to bottom like the diagram |
 | `src/index.ts` | Entry point: starts detectors, routes candidates by drop status |
 | `src/scripts/` | Diagnostics, each targeting one step |
+| `src/hunter.ts` | The bot as a start/stop-able object, driven by CLI or UI |
+| `src/web/` | Dashboard: HTTP server, settings validation, single-page UI |
+| `src/core/events.ts` | Event bus - the flow publishes, the UI subscribes |
 
 ## Import rules
 

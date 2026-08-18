@@ -2,3 +2,4 @@
 export * from './types.js';
 export * from './inspector.js';
 export * from './watchlist.js';
+export * from './registry.js';

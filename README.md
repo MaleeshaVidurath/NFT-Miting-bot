@@ -7,14 +7,18 @@ Arbitrum via `CHAIN=`.
 Step 1 scaffold: chain connection, config with hard safety rails, a pluggable
 detector interface, and a mint executor that simulates before it sends.
 
+**Non-technical user? Read [GUIDE.md](GUIDE.md) and double-click `START-HUNTER.bat`.**
+
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env   # then fill in RPC_HTTP_URL
-npm run typecheck
-npm start
+cp .env.example .env
+npm start          # dashboard at http://127.0.0.1:4663
 ```
+
+`npm start` serves the web dashboard; the bot is started and stopped from
+there. `npm run headless` runs it with no UI.
 
 `DRY_RUN=true` is the default. Nothing is broadcast until you explicitly set it
 to `false`.
@@ -43,6 +47,23 @@ to `false`.
 
 Use a burner wallet. `PRIVATE_KEY` is read from `.env`, which is gitignored.
 
+## Supported networks
+
+Switchable from the dashboard (Settings → Network). Each carries its own RPC,
+Blockscout explorer and OpenSea slug in `CHAINS` in `src/core/config.ts` -
+adding a network is one entry there.
+
+| Network | Chain ID | Public RPC |
+| --- | --- | --- |
+| Robinhood Chain | 4663 | `rpc.mainnet.chain.robinhood.com` |
+| Robinhood testnet | 46630 | `rpc.testnet.chain.robinhood.com` |
+| Ethereum | 1 | `ethereum-rpc.publicnode.com` |
+| Base | 8453 | `mainnet.base.org` |
+| Arbitrum | 42161 | `arb1.arbitrum.io/rpc` |
+
+SeaDrop is deployed at the same canonical address on every one, so drop
+detection works across all of them.
+
 ## Chain reference
 
 | | |
@@ -60,7 +81,9 @@ Testnet is chainId 46630 at `https://rpc.testnet.chain.robinhood.com`.
 
 | Command | What it does |
 | --- | --- |
-| `npm start` | run the hunter |
+| `npm start` / `npm run ui` | web dashboard (start/stop, settings, live feed) |
+| `npm run headless` | run the hunter with no UI |
+| `npm run flow:check` | verify flow-folder dependencies |
 | `npm run drops:upcoming -- 15000` | report scheduled drops, free ones first |
 | `npm run drops:scan -- 3000` | inspect contracts minting in recent blocks |
 | `npm run drops:eligible -- 12000` | apply the eligibility rules to live/upcoming drops |
@@ -90,8 +113,14 @@ are dropped from the denominator rather than scored zero, so an upcoming drop is
 not punished for being early. A Blockscout scam flag is a hard veto,
 independent of the numeric score.
 
-Tunable via `MIN_CREDIBILITY` and `MAX_PAID_MINT_USD`. Prices convert through
-live ETH/USD (CoinGecko), or pin the rate with `ETH_USD_PRICE`.
+Tunable via `MIN_CREDIBILITY` and `MAX_PAID_MINT_PRICE`, both editable from the
+dashboard with a live preview of how many drops each threshold would admit.
+
+`CURRENCY` sets the money the cap is expressed in - 35 currencies, listed in
+`src/flow/04-analyze/currencies.ts`. Rates come from CoinGecko per currency;
+pin one with `ETH_PRICE_OVERRIDE`. Changing currency restates the cap through
+the ratio of ETH's price in each, so no separate FX feed is needed.
+`MAX_PAID_MINT_USD` and `ETH_USD_PRICE` still work as the old names.
 
 ## Mint decision path
 

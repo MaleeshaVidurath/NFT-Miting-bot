@@ -9,7 +9,7 @@ import { inspectDrop } from '../flow/03-drops/inspector.js';
 import { formatDrop, type DropInfo } from '../flow/03-drops/types.js';
 import { PUBLIC_DROP_UPDATED } from '../flow/01-scan/seaDropEvents.js';
 import { evaluate, type Eligibility } from '../flow/05-eligibility/rules.js';
-import { getEthUsd } from '../flow/04-analyze/price.js';
+import { getEthRate, money } from '../flow/04-analyze/price.js';
 
 async function collectTokens(from: number, to: number): Promise<Set<string>> {
   const provider = getProvider();
@@ -36,10 +36,10 @@ async function main() {
   const latest = await provider.getBlockNumber();
   const from = Math.max(0, latest - blocksBack);
 
-  const rate = await getEthUsd();
+  const rate = await getEthRate();
   console.log('\nEligibility rules: free = always | paid = credibility >= ' +
-    config.minCredibility + ' AND <= $' + config.maxPaidMintUsd);
-  console.log('ETH/USD = ' + (rate ?? 'unavailable'));
+    config.minCredibility + ' AND <= ' + money(config.maxPaidMintPrice));
+  console.log('ETH/' + config.currency.toUpperCase() + ' = ' + (rate ?? 'unavailable'));
   console.log('Blocks ' + from + '-' + latest + '\n');
 
   const tokens = await collectTokens(from, latest);
